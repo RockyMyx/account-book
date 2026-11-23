@@ -1,0 +1,85 @@
+/* 家庭记账本 · 蓝色科技风主题 */
+
+:root {
+  /* 主色：科技蓝 */
+  --ab-primary: #1677ff;
+  --ab-primary-deep: #0958d9;
+  --ab-primary-light: #e6f4ff;
+  /* 收入红 / 支出深灰（中国市场习惯：涨红跌绿，收入用红） */
+  --ab-income: #e5484d;
+  --ab-expense: #1f2329;
+  --ab-balance: #00a870;
+  /* 背景与卡片 */
+  --ab-bg: #f5f7fa;
+  --ab-card: #ffffff;
+  --ab-border: #e5e6eb;
+  --ab-text-2: #4e5969;
+  --ab-text-3: #86909c;
+  /* 低置信度警示 */
+  --ab-warn: #ff9a2e;
+  --ab-warn-bg: #fff7e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ab-bg);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+    'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  max-width: 480px; /* 移动优先，桌面居中 */
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--ab-bg);
+}
+
+/* 卡片 */
+.ab-card {
+  background: var(--ab-card);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 10px 12px;
+  box-shadow: 0 1px 4px rgba(22, 119, 255, 0.06);
+}
+
+/* 汇总卡片（顶部大卡） */
+.ab-hero {
+  background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+  color: #fff;
+  border-radius: 16px;
+  padding: 18px 16px;
+  margin: 10px 12px;
+  box-shadow: 0 4px 16px rgba(9, 88, 217, 0.25);
+}
+
+/* 金额数字等宽 */
+.ab-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* 收支颜色 */
+.ab-in {
+  color: var(--ab-income);
+}
+.ab-out {
+  color: var(--ab-expense);
+}
+.ab-balance {
+  color: var(--ab-balance);
+}
+
+/* Vant 主色覆盖为科技蓝 */
+:root:root {
+  --van-primary-color: var(--ab-primary);
+  --van-cell-background: transparent;
+}

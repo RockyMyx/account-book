@@ -1,0 +1,13 @@
+{
+  "name": "account-book",
+  "version": "0.1.0",
+  "private": true,
+  "description": "家庭记账本：多成员免登录 PWA + 语音智能记账 + 公司财务三张表",
+  "workspaces": [],
+  "scripts": {
+    "dev:server": "npm --prefix server run start:dev",
+    "dev:front": "npm --prefix frontend run dev",
+    "build:server": "npm --prefix server run build",
+    "build:front": "npm --prefix frontend run build"
+  }
+}

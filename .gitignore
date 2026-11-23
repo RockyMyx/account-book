@@ -1,0 +1,49 @@
+# 依赖
+node_modules/
+
+# 本地配置与密钥（不提交）
+server/.env
+server/.env.local
+server/.env.*.local
+frontend/.env.local
+frontend/.env.*.local
+*.local
+
+# 构建产物
+dist/
+build/
+.output/
+
+# 数据库与数据文件（SQLite 及备份；实际生成位置 prisma/data，两处都挡住）
+server/prisma/data/
+server/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+backups/
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+
+# 编辑器与系统文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# WorkBuddy 工作数据（日志/上下文，非项目源码）
+.workbuddy/
+
+# 测试与覆盖率
+coverage/
+
+# Prisma 生成物按需保留（schema 变更后重新生成）；选择不提交生成代码
+server/src/generated-prisma/
+
+# PWA 构建缓存
+frontend/.vite/
+frontend/dev-dist/
+frontend/stats.html

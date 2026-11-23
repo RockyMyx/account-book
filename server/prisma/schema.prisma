@@ -1,0 +1,154 @@
+// 家庭记账本 · 数据模型（v1.1：无账户维度，单一家庭资金池）
+// 科目命名沿用《家庭财务三张表.xlsx》原文
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 家庭空间（单家庭部署，表里始终只有一条记录）
+model Family {
+  id            String    @id @default(cuid())
+  name          String // 家庭名
+  familyCode    String @unique // 6 位家庭码，管理员可重置
+  codeResetAt   DateTime? // 家庭码最后重置时间
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  members       Member[]
+  valuations    Valuation[]
+  snapshots     MonthlySnapshot[]
+}
+
+// 家庭成员（1 管理员 + 若干成员；每人=一台设备绑定）
+model Member {
+  id               String        @id @default(cuid())
+  name             String // 昵称
+  avatar           String? // 头像（图标名或 emoji）
+  role             String        @default("member") // admin | member
+  status           String        @default("active") // active | removed（删除留痕）
+  familyId         String
+  family           Family        @relation(fields: [familyId], references: [id])
+  devices          Device[]
+  transactions     Transaction[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([familyId])
+}
+
+// 已绑定设备（设备令牌只存哈希；丢手机场景由管理员撤销）
+model Device {
+  id             String    @id @default(cuid())
+  memberId       String
+  member         Member    @relation(fields: [memberId], references: [id])
+  deviceName     String // 浏览器 UA 摘要或自定义名（如"小马哥的 iPhone"）
+  isMobile       Boolean   @default(false) // 是否手机设备：仅手机记最近登录时间，电脑（开发测试）不记
+  tokenHash      String    @unique // 设备令牌哈希（SHA-256）
+  lastSeenAt     DateTime  @default(now()) // 最后活跃时间（仅手机更新；令牌续期另按固定 TTL）
+  expiresAt      DateTime // 令牌过期时间（180 天，活跃自动续期）
+  revokedAt      DateTime? // 撤销时间；非空即失效
+  createdAt      DateTime  @default(now())
+
+  @@index([memberId])
+}
+
+// 科目分类（预置 Excel 科目 + 用户自定义）
+// direction: income | expense | investment | loan | transfer类已按 v1.1 删除账户相关
+model Category {
+  id        String   @id @default(cuid())
+  name      String // 科目名（Excel 原文：工资薪金、房贷/房租、衣食住行……）
+  icon      String? // 图标（前端图标名）
+  direction String // income | expense
+  @@unique([name])
+  // 板块标签（Excel 利润表口径）：
+  // income 侧：fixed 固定收入 | variable 浮动收入
+  // expense 侧：rigid 刚性固定支出 | flexible 日常弹性支出 | earmark 应急备用金计提
+  tag       String
+  sortNo    Int      @default(0) // 排序
+  isBuiltin Boolean  @default(false) // 预置科目不可删（可改名）
+  transactions Transaction[]
+  budgets       Budget[]
+
+  @@index([direction, tag])
+}
+
+// 交易流水（每笔记账；软删除留痕）
+model Transaction {
+  id           String    @id @default(cuid())
+  date         String // 记账日期 YYYY-MM-DD（SQLite 无日期型，字符串排序即 chronological）
+  type         String // income | expense | invest_buy | invest_sell | invest_income | loan_repay | loan_disburse | asset_buy | earmark
+  amount       Float // 金额（恒为正数，方向由 type 决定）
+  categoryId   String
+  category     Category  @relation(fields: [categoryId], references: [id])
+  memberId     String
+  member       Member    @relation(fields: [memberId], references: [id])
+  note         String? // 备注
+  source       String    @default("manual") // manual | voice | text_ai
+  aiConfidence Float? // AI 解析置信度（0~1，语音/文字智能来源时记录）
+  transcript   String? // 语音原话转写文本（可回溯）
+  deletedAt    DateTime? // 软删除：非空即已删除
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  splits       TxSplit[]
+
+  @@index([date])
+  @@index([memberId])
+  @@index([categoryId])
+}
+
+// 本息拆分明细（贷款还款：利息进刚性支出，本金减负债）
+model TxSplit {
+  id     String  @id @default(cuid())
+  txId   String
+  tx     Transaction @relation(fields: [txId], references: [id], onDelete: Cascade)
+  part   String // interest | principal
+  amount Float
+
+  @@index([txId])
+}
+
+// 资产/负债估值登记（v1.1：无账户对账，现金/存款/投资/房产/负债定期登记估值）
+// item_type 对应资产负债表科目板块：
+// cash 流动资产-现金及活期存款 | fund 金融资产-股票及基金 | deposit 金融资产-定期存款
+// house 固定资产-房产 | car 固定资产-车辆 | debt 长期/流动负债
+model Valuation {
+  id        String   @id @default(cuid())
+  familyId  String
+  family    Family   @relation(fields: [familyId], references: [id])
+  itemType  String // cash | deposit | fund | stock | house | car | debt
+  itemName  String // 登记名（如"招行活期"、"房贷余额"）
+  value     Float // 估值（负债为正数，报表侧取负）
+  valueDate String // 估值时点日期 YYYY-MM-DD
+  createdAt DateTime @default(now())
+
+  @@index([familyId, itemType])
+}
+
+// 月度快照（月末冻结净资产等，用于趋势与勾稽校验）
+model MonthlySnapshot {
+  id          String   @id @default(cuid())
+  familyId    String
+  family      Family   @relation(fields: [familyId], references: [id])
+  month       String // YYYY-MM
+  totalAssets Float
+  totalLiabilities Float
+  netWorth    Float
+  createdAt   DateTime @default(now())
+
+  @@unique([familyId, month])
+}
+
+// 预算（M4：分类/总预算与超支提醒）
+model Budget {
+  id         String   @id @default(cuid())
+  month      String // YYYY-MM
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  amount     Float
+
+  @@unique([month, categoryId])
+}
