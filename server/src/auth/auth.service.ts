@@ -32,7 +32,7 @@ export class AuthService {
     const count = await this.prisma.family.count();
     if (count > 0) throw new BadRequestException('家庭空间已初始化，不能重复执行');
 
-    const familyCode = randomInt(100000, 1000000).toString();
+    const familyCode = this.configuredFamilyCode() ?? randomInt(100000, 1000000).toString();
     const family = await this.prisma.family.create({
       data: { name: familyName, familyCode },
     });
@@ -60,8 +60,14 @@ export class AuthService {
       where: { familyId: family.id, name: memberName, status: 'active' },
     });
     if (!member) {
+      // 家庭还没有任何成员时，首个登录者自动成为管理员（个人用清空成员后重新初始化）
+      const memberCount = await this.prisma.member.count({ where: { familyId: family.id } });
       member = await this.prisma.member.create({
-        data: { name: memberName, familyId: family.id },
+        data: {
+          name: memberName,
+          familyId: family.id,
+          role: memberCount === 0 ? 'admin' : 'member',
+        },
       });
     }
 
@@ -195,12 +201,19 @@ export class AuthService {
 
   async resetFamilyCode(operator: AuthedMember) {
     await this.requireAdmin(operator);
-    const familyCode = randomInt(100000, 1000000).toString();
+    const familyCode = this.configuredFamilyCode() ?? randomInt(100000, 1000000).toString();
     await this.prisma.family.update({
       where: { id: operator.familyId },
       data: { familyCode, codeResetAt: new Date() },
     });
     return { familyCode }; // 仅管理员可见新码
+  }
+
+  // 固定家庭码：配置 FAMILY_CODE 后，初始化与重置都用它（个人使用不必每次随机）
+  // 未配置或格式不对（非 6 位数字）则返回 null，回退到随机生成
+  private configuredFamilyCode(): string | null {
+    const code = process.env.FAMILY_CODE?.trim();
+    return code && /^\d{6}$/.test(code) ? code : null;
   }
 
   async requireAdmin(m: AuthedMember) {
