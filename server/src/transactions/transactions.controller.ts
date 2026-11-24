@@ -41,6 +41,15 @@ export class TransactionsController {
     return this.txs.monthlySummary(m, mo);
   }
 
+  // 统计聚合（分类分布 / 成员收支对比）
+  @Get('stats')
+  stats(
+    @CurrentMember() m: AuthedMember,
+    @Query('month') month: string,
+  ) {
+    return this.txs.stats(m, month || new Date().toISOString().slice(0, 7));
+  }
+
   // 近 N 月收支结余趋势（统计页折线图）
   @Get('trend')
   trend(

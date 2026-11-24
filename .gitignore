@@ -37,6 +37,9 @@ Thumbs.db
 # WorkBuddy 工作数据（日志/上下文，非项目源码）
 .workbuddy/
 
+# 设计原型稿（本地参考，不入库）
+prototypes/
+
 # 测试与覆盖率
 coverage/
 

@@ -333,6 +333,83 @@ export class TransactionsService {
     return summary;
   }
 
+  // ---------- 统计聚合（分类分布 / 成员收支对比，统计页用） ----------
+  // 口径：收入=income + invest_income；支出=expense + earmark（备用金计提）
+  // 投资买卖/贷款本金/资产购置是存量转移，不进收支分布；贷款利息按拆分计入对应 debt 分类
+  async stats(m: AuthedMember, month: string) {
+    const start = `${month}-01`;
+    const [y, mo] = month.split('-').map(Number);
+    const nextMonth = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
+
+    const txs = await this.prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+        date: { gte: start, lt: `${nextMonth}-01` },
+        member: { familyId: m.familyId, status: 'active' },
+      },
+      include: {
+        category: { select: { id: true, name: true, tag: true, icon: true, direction: true } },
+        member: { select: { id: true, name: true, avatar: true } },
+        splits: true,
+      },
+    });
+
+    type Row = { id: string; name: string; tag: string; icon: string | null; value: number; count: number };
+    const incomeMap = new Map<string, Row>();
+    const expenseMap = new Map<string, Row>();
+    const memberMap = new Map<string, { id: string; name: string; avatar: string | null; income: number; expense: number; count: number }>();
+    const tagTotals = { rigid: 0, flexible: 0, earmark: 0 };
+    const bump = (map: Map<string, Row>, c: { id: string; name: string; tag: string; icon: string | null }, amount: number) => {
+      const cur = map.get(c.id) || { id: c.id, name: c.name, tag: c.tag, icon: c.icon, value: 0, count: 0 };
+      cur.value += amount;
+      cur.count += 1;
+      map.set(c.id, cur);
+    };
+
+    for (const t of txs) {
+      const c = t.category;
+      const mem = t.member;
+      const mrow = memberMap.get(mem.id) || { id: mem.id, name: mem.name, avatar: mem.avatar, income: 0, expense: 0, count: 0 };
+      mrow.count += 1;
+
+      if (t.type === 'income' || t.type === 'invest_income') {
+        bump(incomeMap, c, t.amount);
+        mrow.income += t.amount;
+      } else if (t.type === 'expense' || t.type === 'earmark') {
+        bump(expenseMap, c, t.amount);
+        mrow.expense += t.amount;
+        if (c.tag === 'rigid' || c.tag === 'flexible' || c.tag === 'earmark') {
+          tagTotals[c.tag as keyof typeof tagTotals] += t.amount;
+        }
+      } else if (t.type === 'loan_repay') {
+        // 仅利息进支出分布（与 monthlySummary 口径一致），本金不进
+        const interest = t.splits.filter((s) => s.part === 'interest').reduce((s, x) => s + x.amount, 0);
+        if (interest > 0) {
+          bump(expenseMap, c, interest);
+          mrow.expense += interest;
+          tagTotals.rigid += interest;
+        }
+      }
+      memberMap.set(mem.id, mrow);
+    }
+
+    const sorted = (map: Map<string, Row>) => [...map.values()].sort((a, b) => b.value - a.value);
+    const sum = (rows: Row[]) => rows.reduce((s, r) => s + r.value, 0);
+    const incomeByCategory = sorted(incomeMap);
+    const expenseByCategory = sorted(expenseMap);
+
+    return {
+      month,
+      txCount: txs.length,
+      totalIncome: sum(incomeByCategory),
+      totalExpense: sum(expenseByCategory),
+      incomeByCategory,
+      expenseByCategory,
+      tagTotals,
+      byMember: [...memberMap.values()].sort((a, b) => b.expense - a.expense),
+    };
+  }
+
   // ---------- 趋势（近 N 月收支结余，统计页折线图用） ----------
   async trend(m: AuthedMember, months = 6) {
     const now = new Date()
