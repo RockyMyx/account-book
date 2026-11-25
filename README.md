@@ -5,7 +5,7 @@
 ## 技术栈
 
 - 前端：Vue 3 + TypeScript + Vite + Vant 4（蓝色科技风主题）
-- 后端：Node.js 20+ + NestJS + Prisma + SQLite（WAL 模式）
+- 后端：Node.js 20+ + NestJS + Prisma + MySQL
 - 部署：Docker Compose + Caddy HTTPS（M5）
 
 ## 本地开发
@@ -13,9 +13,9 @@
 ```bash
 # 服务端（端口 3001；本机 3000 已有其他服务）
 cd server
-cp .env.example .env      # 填 JWT_SECRET（随机串）等
+cp .env.example .env      # 填 MySQL 连接、JWT_SECRET 等
 npm install
-npx prisma migrate deploy
+npm run prisma:deploy
 npm run start:dev
 
 # 前端（端口 5173，/api 代理到 3001）
@@ -29,7 +29,8 @@ npm run dev
 ## 配置说明
 
 - 本地配置一律放 `.env`（已在 .gitignore，不提交）；模板见 `server/.env.example`
-- 需要配置：`JWT_SECRET`（令牌签名密钥）、`ZHIPU_API_KEY`（语音记账，M2 起）
+- MySQL 连接用 `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` 配置，脚本会自动生成 `DATABASE_URL`
+- 需要配置：`DB_PASSWORD`、`JWT_SECRET`（令牌签名密钥）、`ZHIPU_API_KEY`、`AZURE_SPEECH_KEY`（后两项用于语音记账；不用语音可留空）
 
 ## 里程碑
 

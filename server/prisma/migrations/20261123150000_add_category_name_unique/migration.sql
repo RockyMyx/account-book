@@ -1,0 +1,1 @@
+-- MySQL 初始迁移已包含 Category_name_key，这里保留历史迁移名，不重复建索引。

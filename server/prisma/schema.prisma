@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -79,7 +79,7 @@ model Category {
 // 交易流水（每笔记账；软删除留痕）
 model Transaction {
   id           String    @id @default(cuid())
-  date         String // 记账日期 YYYY-MM-DD（SQLite 无日期型，字符串排序即 chronological）
+  date         String // 记账日期 YYYY-MM-DD（统一字符串格式，便于排序与按月检索）
   type         String // income | expense | invest_buy | invest_sell | invest_income | loan_repay | loan_disburse | asset_buy | earmark
   amount       Float // 金额（恒为正数，方向由 type 决定）
   categoryId   String
